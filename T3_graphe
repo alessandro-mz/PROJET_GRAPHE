@@ -1,0 +1,108 @@
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.Objects;
+
+public class Graphe {
+
+    private final Map<Sommet, List<Arete>> adjacence;
+
+    private final Set<Sommet> sommets;
+
+    public Graphe() {
+        this.adjacence = new HashMap<>();
+        this.sommets = new HashSet<>();
+    }
+
+    public void ajouterSommet(Sommet s) {
+        sommets.add(s);
+        adjacence.putIfAbsent(s, new ArrayList<>());
+    }
+
+    public void ajouterAreteOrientee(Sommet source, Sommet dest, double poids) {
+        ajouterSommet(source);
+        ajouterSommet(dest);
+        Arete arete = new Arete(source, dest, poids);
+        adjacence.get(source).add(arete);
+    }
+
+    public void ajouterAreteNonOrientee(Sommet s1, Sommet s2, double poids) {
+        ajouterAreteOrientee(s1, s2, poids);
+        ajouterAreteOrientee(s2, s1, poids);
+    }
+
+    public int getDegre(Sommet s) {
+        if (adjacence.containsKey(s)) {
+            return adjacence.get(s).size();
+        }
+        return 0;
+    }
+
+    public List<Sommet> getSommetsImpairs() {
+        List<Sommet> impairs = new ArrayList<>();
+        for (Sommet s : sommets) {
+            if (getDegre(s) % 2 != 0) {
+                impairs.add(s);
+            }
+        }
+        return impairs;
+    }
+
+    public boolean estEulerien() {
+        return getSommetsImpairs().isEmpty();
+    }
+
+    public Set<Sommet> getSommets() {
+        return sommets;
+    }
+
+    public List<Arete> getAretesSortantes(Sommet s) {
+        return adjacence.getOrDefault(s, new ArrayList<>());
+    }
+
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("Graphe (").append(sommets.size()).append(" sommets):\n");
+        for (Sommet s : sommets) {
+            sb.append("  ").append(s).append(" (Degré ").append(getDegre(s)).append(") -> ");
+            sb.append(adjacence.get(s)).append("\n");
+        }
+        return sb.toString();
+    }
+
+    public void ajouterCheminVirtuel(List<Sommet> chemin) {
+        for (int i = 0; i < chemin.size() - 1; i++) {
+            Sommet u = chemin.get(i);
+            Sommet v = chemin.get(i + 1);
+
+            double poids = 0;
+            boolean trouve = false;
+
+            for (Arete a : adjacence.get(u)) {
+                if (a.getDestination().equals(v)) {
+                    poids = a.getPoids();
+                    trouve = true;
+                    break;
+                }
+            }
+
+            if (trouve) {
+                ajouterAreteNonOrientee(u, v, poids);
+                System.out.println("➕ Duplication de la rue : " + u.getId() + " <-> " + v.getId());
+            }
+        }
+    }
+    // Ajoutez cette méthode à votre classe Graphe.java
+    public Sommet getSommetParId(String id) {
+        for (Sommet s : sommets) {
+            if (s.getId().equalsIgnoreCase(id)) {
+                return s;
+            }
+        }
+        return null;
+    }
+}
