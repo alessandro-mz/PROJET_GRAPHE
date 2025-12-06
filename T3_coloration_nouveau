@@ -1,0 +1,35 @@
+// --- PARTIE THÈME 3 : COLORATION (WELSH-POWELL) ---
+    public Map<Sommet, Integer> colorationWelshPowell() {
+        Map<Sommet, Integer> couleurs = new HashMap<>();
+        // On récupère tous les secteurs
+        List<Sommet> tri = new ArrayList<>(sommets.values());
+        
+        // 1. Tri des sommets par degré décroissant (celui qui a le plus de conflits en premier)
+        tri.sort((s1, s2) -> Integer.compare(s2.getArcsAdjacents().size(), s1.getArcsAdjacents().size()));
+
+        int couleur = 0;
+        int compte = 0;
+        
+        // Tant qu'on n'a pas colorié tous les sommets
+        while (compte < tri.size()) {
+            couleur++;
+            for (Sommet s : tri) {
+                if (!couleurs.containsKey(s)) {
+                    boolean possible = true;
+                    // On regarde si un voisin a déjà cette couleur
+                    for (Arc a : s.getArcsAdjacents()) {
+                        if (couleurs.containsKey(a.getDestination()) && couleurs.get(a.getDestination()) == couleur) {
+                            possible = false; 
+                            break;
+                        }
+                    }
+                    // Si personne ne l'a, on assigne la couleur
+                    if (possible) {
+                        couleurs.put(s, couleur);
+                        compte++;
+                    }
+                }
+            }
+        }
+        return couleurs;
+    }
