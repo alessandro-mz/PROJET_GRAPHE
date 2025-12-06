@@ -1,0 +1,49 @@
+public static List<List<Sommet>> decouperTourneeCapacite(Graphe graphe, List<Sommet> itineraireGlobal, Sommet depot, double capaciteMax) {
+        List<List<Sommet>> toutesLesTournees = new ArrayList<>();
+        List<Sommet> pointsMission = new ArrayList<>();
+        Set<Sommet> pointsDeCollecte = new HashSet<>();
+
+        // 1. Identifier les points de collecte réels dans l'itinéraire (on ne s'occupe que des stops)
+        for (Sommet s : itineraireGlobal) {
+            if (s.getId().equals("Gare") || s.getId().equals("Poste")) { // Références à adapter si besoin
+                pointsDeCollecte.add(s);
+            }
+        }
+        pointsMission.addAll(pointsDeCollecte);
+
+
+        // 2. Découpage basé sur l'exemple du projet (on utilise des valeurs codées pour les contenances)
+        Map<Sommet, Double> contenances = new HashMap<>();
+        // ATTENTION: Ces IDs doivent correspondre à ceux chargés dans le graphe !
+        // Pour les tests :
+        contenances.put(new Sommet("Gare"), 3.0);
+        contenances.put(new Sommet("Poste"), 5.0);
+
+        double chargeActuelle = 0;
+        List<Sommet> tourneeActuelle = new ArrayList<>();
+        tourneeActuelle.add(depot);
+
+        for (Sommet point : pointsMission) {
+            double contenancePoint = contenances.getOrDefault(point, 1.0);
+
+            if (chargeActuelle + contenancePoint > capaciteMax) {
+                tourneeActuelle.add(depot);
+                toutesLesTournees.add(tourneeActuelle);
+
+                tourneeActuelle = new ArrayList<>();
+                tourneeActuelle.add(depot);
+                tourneeActuelle.add(point);
+                chargeActuelle = contenancePoint;
+            } else {
+                tourneeActuelle.add(point);
+                chargeActuelle += contenancePoint;
+            }
+        }
+
+        if (tourneeActuelle.size() > 1) {
+            tourneeActuelle.add(depot);
+            toutesLesTournees.add(tourneeActuelle);
+        }
+
+        return toutesLesTournees;
+    }
