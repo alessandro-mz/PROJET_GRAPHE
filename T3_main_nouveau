@@ -1,0 +1,41 @@
+// --- TEST THÈME 3 : CRÉATION DU GRAPHE DE CONFLIT ---
+    private static void testColoration() {
+        System.out.println("\n--- PLANIFICATION DES SECTEURS (COLORATION) ---");
+        Graphe plan = new Graphe();
+        
+        // 1. Création des secteurs virtuels (comme des sommets)
+        Sommet centre = new Sommet("Secteur_Centre");
+        Sommet nord = new Sommet("Secteur_Nord");
+        Sommet sud = new Sommet("Secteur_Sud");
+        Sommet est = new Sommet("Secteur_Est");
+        Sommet ouest = new Sommet("Secteur_Ouest");
+
+        plan.ajouterSommetDirect(centre); plan.ajouterSommetDirect(nord);
+        plan.ajouterSommetDirect(sud); plan.ajouterSommetDirect(est);
+        plan.ajouterSommetDirect(ouest);
+
+        // 2. Définition des incompatibilités (Si deux secteurs se touchent = Arête)
+        plan.ajouterAreteNonOrientee(centre, nord);
+        plan.ajouterAreteNonOrientee(centre, sud);
+        plan.ajouterAreteNonOrientee(centre, est);
+        plan.ajouterAreteNonOrientee(centre, ouest);
+        
+        plan.ajouterAreteNonOrientee(nord, est);
+        plan.ajouterAreteNonOrientee(nord, ouest);
+        
+        plan.ajouterAreteNonOrientee(sud, est);
+        plan.ajouterAreteNonOrientee(sud, ouest);
+
+        // 3. Appel de leur algorithme
+        Map<Sommet, Integer> res = plan.colorationWelshPowell();
+        
+        // 4. Affichage du résultat (Jour 1, Jour 2...)
+        System.out.println("Calendrier de passage (Jours incompatibles) :");
+        String[] jours = {"", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi"};
+        
+        for(var e : res.entrySet()) {
+            int j = e.getValue();
+            String nomJour = (j < jours.length) ? jours[j] : "Jour "+j;
+            System.out.println(" - " + e.getKey().getId() + " : " + nomJour);
+        }
+    }
