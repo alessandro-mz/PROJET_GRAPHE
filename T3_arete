@@ -1,0 +1,29 @@
+public class Arete {
+
+    private final Sommet source;
+    private final Sommet destination;
+    private final double poids;
+
+    public Arete(Sommet source, Sommet destination, double poids) {
+        this.source = source;
+        this.destination = destination;
+        this.poids = poids;
+    }
+
+    public Sommet getSource() {
+        return source;
+    }
+
+    public Sommet getDestination() {
+        return destination;
+    }
+
+    public double getPoids() {
+        return poids;
+    }
+
+    @Override
+    public String toString() {
+        return source + " -> " + destination + " (" + poids + ")";
+    }
+}
