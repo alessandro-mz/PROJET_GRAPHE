@@ -1,0 +1,66 @@
+// HYPOTHÈSE 2 : MST (Arbre Couvrant Minimum / Algo de Prim)
+    // Le principe : On relie tous les points entre eux de façon optimale (virtuellement)
+    // puis on parcourt cet arbre pour définir l'ordre de passage.
+    public void tourneeMST(String idDepot, List<String> clients) {
+        System.out.println("\n--- 🚚 TOURNÉE OPTIMISÉE (MST / PRIM) ---");
+        List<String> points = new ArrayList<>(clients);
+        if(!points.contains(idDepot)) points.add(0, idDepot);
+
+        // 1. Création du Méta-Graphe (Distances entre tous les points d'intérêt)
+        // C'est comme créer un mini-graphe où chaque client est un sommet
+        Map<String, Map<String, Integer>> metaGraphe = new HashMap<>();
+        for(String src : points) {
+            metaGraphe.put(src, new HashMap<>());
+            for(String dest : points) {
+                if(!src.equals(dest)) {
+                    int dist = calculerDistanceSeule(getCheminDijkstra(src, dest));
+                    metaGraphe.get(src).put(dest, dist);
+                }
+            }
+        }
+
+        // 2. Algorithme de PRIM (Construction de l'arbre MST)
+        Map<String, List<String>> mst = new HashMap<>();
+        for(String s : points) mst.put(s, new ArrayList<>());
+        
+        Set<String> dansMST = new HashSet<>();
+        PriorityQueue<Edge> pq = new PriorityQueue<>(); // Trie les arêtes par poids
+        
+        String start = idDepot;
+        dansMST.add(start);
+        // On ajoute toutes les liaisons partant du dépôt
+        for(var e : metaGraphe.get(start).entrySet()) {
+            pq.add(new Edge(start, e.getKey(), e.getValue()));
+        }
+
+        while(dansMST.size() < points.size() && !pq.isEmpty()) {
+            Edge edge = pq.poll(); // On prend l'arête la plus courte
+            if(dansMST.contains(edge.dest)) continue; // Si déjà visité, on ignore
+            
+            dansMST.add(edge.dest);
+            mst.get(edge.src).add(edge.dest); // On valide ce lien dans l'arbre
+            mst.get(edge.dest).add(edge.src);
+
+            // On ajoute les voisins du nouveau point
+            for(var e : metaGraphe.get(edge.dest).entrySet()) {
+                if(!dansMST.contains(e.getKey())) {
+                    pq.add(new Edge(edge.dest, e.getKey(), e.getValue()));
+                }
+            }
+        }
+
+        // 3. Parcours Préfixe (DFS) pour trouver l'ordre de visite final
+        List<String> ordre = new ArrayList<>();
+        dfs(idDepot, new HashSet<>(), mst, ordre);
+        ordre.add(idDepot); // On boucle pour revenir au départ
+        
+        System.out.println("Ordre calculé par l'MST : " + ordre);
+
+        // 4. Exécution réelle du trajet
+        int total = 0;
+        for(int i=0; i<ordre.size()-1; i++) {
+            List<Sommet> ch = getCheminDijkstra(ordre.get(i), ordre.get(i+1));
+            total += afficherTrajet(ch);
+        }
+        System.out.println("📏 DISTANCE TOTALE TOURNÉE (MST) : " + total + " mètres");
+    }
