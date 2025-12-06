@@ -1,0 +1,179 @@
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
+import java.util.*;
+
+public class Projet_T2H2 {
+
+    public static void main(String[] args) {
+        String fichierGraphe = ".idea/graphe.txt";
+        boolean forcerDoubleSens = true;
+
+        String depot = "Place_Rotterdam";
+        List<String> pointsInteret = new ArrayList<>(Arrays.asList(
+                depot,
+                "Gare_Centrale",
+                "Rivetoile",
+                "Orangerie",
+                "Place_Kleber"
+        ));
+        Graphe graphe = new Graphe();
+        try {
+            chargerGraphe(graphe, fichierGraphe, forcerDoubleSens);
+            System.out.println("--- Graphe chargé ---");
+        } catch (IOException e) {
+            System.err.println("Erreur fichier : " + e.getMessage());
+            return;
+        }
+
+        calculerTourneeMST(graphe, pointsInteret, depot);
+    }
+
+    public static void calculerTourneeMST(Graphe grapheOriginal, List<String> pointsInteret, String depot) {
+        System.out.println("\n CALCUL DU MST (Arbre Couvrant Minimum)");
+
+        Map<String, Map<String, Integer>> metaGraphe = new HashMap<>();
+
+        for (String source : pointsInteret) {
+            metaGraphe.put(source, new HashMap<>());
+            ResultatDijkstra res = Dijkstra.calculerDistancesDepuis(grapheOriginal, source);
+
+            for (String cible : pointsInteret) {
+                if (!source.equals(cible) && res.distances.containsKey(cible)) {
+                    metaGraphe.get(source).put(cible, res.distances.get(cible));
+                }
+            }
+        }
+
+        Map<String, List<String>> arbreMST = algorithmePrim(metaGraphe, pointsInteret, depot);
+        System.out.println(" Arbre MST généré.");
+
+        List<String> ordreVisite = new ArrayList<>();
+        Set<String> visiteDFS = new HashSet<>();
+        parcoursPrefixe(depot, arbreMST, visiteDFS, ordreVisite);
+        ordreVisite.add(depot);
+
+        System.out.println(" Ordre de visite calculé : " + ordreVisite);
+
+        System.out.println("\n GÉNÉRATION DE L'ITINÉRAIRE RÉEL...");
+        List<String> itineraireComplet = new ArrayList<>();
+        int distanceTotale = 0;
+        itineraireComplet.add(ordreVisite.get(0));
+
+        for (int i = 0; i < ordreVisite.size() - 1; i++) {
+            String de = ordreVisite.get(i);
+            String vers = ordreVisite.get(i + 1);
+            ResultatDijkstra trajet = Dijkstra.calculerDistancesDepuis(grapheOriginal, de);
+            int dist = trajet.distances.get(vers);
+            distanceTotale += dist;
+
+            List<String> cheminDetaille = Dijkstra.reconstruireChemin(trajet.predecesseurs, vers);
+            for (int k = 1; k < cheminDetaille.size(); k++) {
+                itineraireComplet.add(cheminDetaille.get(k));
+            }
+        }
+
+        System.out.println(" TOURNÉE MST TERMINÉE");
+        System.out.println("Distance Totale : " + distanceTotale + " mètres");
+        System.out.println("Itinéraire : " + itineraireComplet);
+    }
+
+    public static Map<String, List<String>> algorithmePrim(Map<String, Map<String, Integer>> graphe, List<String> sommets, String debut) {
+        Map<String, List<String>> mst = new HashMap<>();
+        for(String s : sommets) mst.put(s, new ArrayList<>());
+
+        Set<String> dansMST = new HashSet<>();
+        dansMST.add(debut);
+
+        PriorityQueue<AreteMST> pq = new PriorityQueue<>(Comparator.comparingInt(a -> a.poids));
+
+        for(Map.Entry<String, Integer> e : graphe.get(debut).entrySet()) {
+            pq.add(new AreteMST(debut, e.getKey(), e.getValue()));
+        }
+
+        while(dansMST.size() < sommets.size() && !pq.isEmpty()) {
+            AreteMST arete = pq.poll();
+            if(dansMST.contains(arete.dest)) continue;
+
+            mst.get(arete.src).add(arete.dest);
+            mst.get(arete.dest).add(arete.src);
+
+            dansMST.add(arete.dest);
+
+            for(Map.Entry<String, Integer> e : graphe.get(arete.dest).entrySet()) {
+                if(!dansMST.contains(e.getKey())) {
+                    pq.add(new AreteMST(arete.dest, e.getKey(), e.getValue()));
+                }
+            }
+        }
+        return mst;
+    }
+
+    public static void parcoursPrefixe(String u, Map<String, List<String>> arbre, Set<String> visites, List<String> resultat) {
+        visites.add(u);
+        resultat.add(u);
+
+
+        Collections.sort(arbre.get(u));
+
+        for(String v : arbre.get(u)) {
+            if(!visites.contains(v)) {
+                parcoursPrefixe(v, arbre, visites, resultat);
+            }
+        }
+    }
+    public static void chargerGraphe(Graphe g, String path, boolean d) throws IOException {
+        BufferedReader r = new BufferedReader(new FileReader(path));
+        String l; while((l=r.readLine())!=null) {
+            l=l.trim(); if(l.isEmpty()||l.startsWith("#")) continue;
+            String[] p=l.split(";"); if(p.length==3) {
+                try { int w=Integer.parseInt(p[2].trim());
+                    g.ajouterArete(p[0].trim(),p[1].trim(),w);
+                    if(d) g.ajouterArete(p[1].trim(),p[0].trim(),w);
+                } catch(Exception e){}
+            }
+        } r.close();
+    }
+
+    static class AreteMST {
+        String src, dest; int poids;
+        public AreteMST(String s, String d, int p) { src=s; dest=d; poids=p; }
+    }
+}
+
+class Graphe {
+    Map<String, Map<String, Integer>> adj = new HashMap<>();
+    public void ajouterArete(String s, String d, int p) {
+        adj.putIfAbsent(s, new HashMap<>()); adj.putIfAbsent(d, new HashMap<>());
+        if(!adj.get(s).containsKey(d) || adj.get(s).get(d)>p) adj.get(s).put(d, p);
+    }
+    public Map<String, Integer> getVoisins(String s) { return adj.getOrDefault(s, new HashMap<>()); }
+    public Set<String> getSommets() { return adj.keySet(); }
+}
+class ResultatDijkstra {
+    Map<String, Integer> distances; Map<String, String> predecesseurs;
+    public ResultatDijkstra(Map<String, Integer> d, Map<String, String> p) { distances=d; predecesseurs=p; }
+}
+class Dijkstra {
+    public static ResultatDijkstra calculerDistancesDepuis(Graphe g, String start) {
+        Map<String, Integer> dist = new HashMap<>(); Map<String, String> pred = new HashMap<>();
+        PriorityQueue<String> pq = new PriorityQueue<>(Comparator.comparingInt(dist::get));
+        for(String s:g.getSommets()) dist.put(s, Integer.MAX_VALUE);
+        dist.put(start, 0); pq.add(start); Set<String> vis = new HashSet<>();
+        while(!pq.isEmpty()) {
+            String u = pq.poll(); if(vis.contains(u)) continue; vis.add(u);
+            if(dist.get(u)==Integer.MAX_VALUE) break;
+            for(Map.Entry<String, Integer> v : g.getVoisins(u).entrySet()) {
+                if(dist.get(u)+v.getValue() < dist.get(v.getKey())) {
+                    dist.put(v.getKey(), dist.get(u)+v.getValue());
+                    pred.put(v.getKey(), u); pq.add(v.getKey());
+                }
+            }
+        } return new ResultatDijkstra(dist, pred);
+    }
+    public static List<String> reconstruireChemin(Map<String, String> pred, String target) {
+        LinkedList<String> path = new LinkedList<>(); String s = target;
+        while(s!=null) { path.addFirst(s); s = pred.get(s); }
+        return path;
+    }
+}
