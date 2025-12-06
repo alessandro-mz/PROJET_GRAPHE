@@ -1,0 +1,32 @@
+// --- BLOC DE TEST : THÈME 3 : PLANIFICATION DES JOURS (COLORATION) ---
+        System.out.println("\n--- Thème 3 : Planification des Jours (Coloration) ---");
+
+        // Création du Graphe de Conflit (indépendant du réseau routier)
+        Graphe planVille = new Graphe();
+
+        Sommet centre = new Sommet("Secteur_Centre");
+        Sommet nord   = new Sommet("Secteur_Nord");
+        Sommet sud    = new Sommet("Secteur_Sud");
+        Sommet est    = new Sommet("Secteur_Est");
+        Sommet ouest  = new Sommet("Secteur_Ouest");
+
+        planVille.ajouterAreteNonOrientee(centre, nord, 1);
+        planVille.ajouterAreteNonOrientee(centre, sud, 1);
+        planVille.ajouterAreteNonOrientee(centre, est, 1);
+        planVille.ajouterAreteNonOrientee(centre, ouest, 1);
+
+        planVille.ajouterAreteNonOrientee(nord, est, 1);
+        planVille.ajouterAreteNonOrientee(nord, ouest, 1);
+
+        planVille.ajouterAreteNonOrientee(sud, est, 1);
+        planVille.ajouterAreteNonOrientee(sud, ouest, 1);
+
+        java.util.Map<Sommet, Integer> planning = Algorithme.colorationWelshPowell(planVille);
+
+        System.out.println(" Planning généré :");
+        String[] jours = {"", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi"};
+
+        for (Sommet s : planning.keySet()) {
+            int numJour = planning.get(s);
+            System.out.println("  - " + s.getId() + " : Jour " + numJour + " (" + (numJour < jours.length ? jours[numJour] : "Jour "+numJour) + ")");
+        }
