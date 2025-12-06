@@ -1,0 +1,23 @@
+public class Arc {
+    private Sommet destination;
+    private int poids;
+    private String nomRue; // <--- Ajouté pour l'affichage
+
+    public Arc(Sommet destination, int poids, String nomRue) {
+        this.destination = destination;
+        this.poids = poids;
+        this.nomRue = nomRue;
+    }
+
+    public Sommet getDestination() {
+        return destination;
+    }
+
+    public int getPoids() {
+        return poids;
+    }
+
+    public String getNomRue() {
+        return nomRue;
+    }
+}
