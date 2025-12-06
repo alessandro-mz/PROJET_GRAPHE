@@ -1,0 +1,40 @@
+public static Map<Sommet, Integer> colorationWelshPowell(Graphe grapheSecteurs) {
+        Map<Sommet, Integer> couleurs = new HashMap<>();
+       
+        List<Sommet> sommetsTries = new ArrayList<>(grapheSecteurs.getSommets());
+       
+        sommetsTries.sort((s1, s2) -> {
+            int degre1 = grapheSecteurs.getDegre(s1);
+            int degre2 = grapheSecteurs.getDegre(s2);
+            return Integer.compare(degre2, degre1);
+        });
+
+        int couleurActuelle = 0;
+        int sommetsColories = 0;
+        int totalSommets = sommetsTries.size();
+
+        while (sommetsColories < totalSommets) {
+            couleurActuelle++;
+           
+            for (Sommet sommet : sommetsTries) {
+                if (!couleurs.containsKey(sommet)) {
+                    boolean peutEtreColorie = true;
+
+                    for (Arete a : grapheSecteurs.getAretesSortantes(sommet)) {
+                        Sommet voisin = a.getDestination();
+                        if (couleurs.containsKey(voisin) && couleurs.get(voisin) == couleurActuelle) {
+                            peutEtreColorie = false;
+                            break;
+                        }
+                    }
+
+                    if (peutEtreColorie) {
+                        couleurs.put(sommet, couleurActuelle);
+                        sommetsColories++;
+                    }
+                }
+            }
+        }
+       
+        return couleurs;
+    }
