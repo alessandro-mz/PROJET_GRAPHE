@@ -1,0 +1,101 @@
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Scanner;
+
+public class Main {
+
+    public static void main(String[] args) {
+        Graphe g = new Graphe();
+        Scanner sc = new Scanner(System.in);
+
+        // Chargement
+        g.chargerFichierStrasbourg("orangerie");
+
+        boolean continuer = true;
+        while (continuer) {
+            System.out.println("\n#############################################");
+            System.out.println("               MENU PRINCIPAL");
+            System.out.println("#############################################");
+            System.out.println("1. Problème 1, Hypothèse 1 : Calcul d'itinéraire direct");
+            System.out.println("2. Problème 1, Hypothèse 2 : Tournée de passage");
+            System.out.println("3. Problème 2 : Analyse Eulérienne (Collecte globale)");
+            System.out.println("0. Quitter");
+            System.out.print("\nVotre choix > ");
+
+            String choix = sc.nextLine();
+
+            switch (choix) {
+                case "1":
+                    casItineraireDirect(g, sc);
+                    break;
+                case "2":
+                    casTourneePassage(g, sc);
+                    break;
+                case "3":
+                    g.analyseEulerienne();
+                    break;
+                case "0":
+                    continuer = false;
+                    break;
+                default:
+                    System.out.println("Choix invalide.");
+            }
+        }
+        sc.close();
+    }
+
+    // --- PROB 1 HYP 1 : Itinéraire Direct ---
+    private static void casItineraireDirect(Graphe g, Scanner sc) {
+        System.out.println("\n--- ITINÉRAIRE DIRECT ---");
+        String depart = demanderRue(sc, g, "Rue de DÉPART :");
+        if (depart == null) return;
+        String arrivee = demanderRue(sc, g, "Rue d'ARRIVÉE :");
+        if (arrivee == null) return;
+
+        System.out.println("\nCalcul en cours...");
+        List<Sommet> chemin = g.getCheminDijkstra(depart, arrivee);
+        int dist = g.afficherTrajetDetaille(chemin);
+        System.out.println("DISTANCE TOTALE : " + dist + " mètres.");
+    }
+
+    // --- PROB 1 HYP 2 : Tournée de passage ---
+    private static void casTourneePassage(Graphe g, Scanner sc) {
+        System.out.println("\n--- TOURNÉE DE PASSAGE ---");
+        String depot = demanderRue(sc, g, "Rue du DÉPÔT (Départ/Arrivée) :");
+        if (depot == null) return;
+
+        List<String> points = new ArrayList<>();
+        System.out.println("Entrez les rues à visiter (Tapez 'FIN' pour lancer) :");
+
+        while (true) {
+            System.out.print("Point à visiter > ");
+            String input = sc.nextLine();
+            if (input.equalsIgnoreCase("FIN")) break;
+
+            String id = g.trouverIdParNomRue(input);
+            if (id != null) {
+                points.add(id);
+                System.out.println("   -> Ajouté.");
+            } else {
+                System.out.println("    Rue inconnue.");
+            }
+        }
+
+        if (!points.isEmpty()) g.optimiserTournee(depot, points);
+        else System.out.println("Aucun point renseigné.");
+    }
+
+    // --- UTILITAIRE ---
+    private static String demanderRue(Scanner sc, Graphe g, String msg) {
+        while (true) {
+            System.out.println(msg);
+            System.out.print("> ");
+            String saisie = sc.nextLine();
+            if (saisie.equalsIgnoreCase("menu")) return null;
+
+            String id = g.trouverIdParNomRue(saisie);
+            if (id != null) return id;
+            System.out.println("Rue introuvable. Réessayez.");
+        }
+    }
+}
