@@ -1,0 +1,14 @@
+public class Paire implements Comparable<Paire> {
+    Sommet sommet;
+    int distance;
+
+    public Paire(Sommet sommet, int distance) {
+        this.sommet = sommet;
+        this.distance = distance;
+    }
+
+    @Override
+    public int compareTo(Paire autre) {
+        return Integer.compare(this.distance, autre.distance);
+    }
+}
