@@ -1,0 +1,44 @@
+// --- PARTIE THÈME 2 : ALGORITHMES DE TOURNÉE ---
+
+    // HYPOTHÈSE 1 : GLOUTON (Plus proche voisin)
+    // Le principe : Je suis à un point, je vais au client le plus proche, je répète.
+    public void tourneeGloutonne(String idDepot, List<String> clients) {
+        System.out.println("\n--- 🚛 TOURNÉE GLOUTONNE (Plus proche voisin) ---");
+        String actuel = idDepot;
+        List<String> aFaire = new ArrayList<>(clients);
+        int total = 0;
+
+        while (!aFaire.isEmpty()) {
+            String meilleur = null;
+            int minD = Integer.MAX_VALUE;
+            List<Sommet> meilleurChemin = null;
+
+            // On cherche le client le plus proche parmi ceux qui restent
+            for (String c : aFaire) {
+                List<Sommet> ch = getCheminDijkstra(actuel, c);
+                // On utilise une méthode interne pour calculer la distance sans afficher
+                int d = calculerDistanceSeule(ch); 
+                if (d < minD) { 
+                    minD = d; 
+                    meilleur = c; 
+                    meilleurChemin = ch; 
+                }
+            }
+
+            if (meilleur != null) {
+                System.out.println("\n🔵 Vers le client suivant (" + meilleur + ")...");
+                total += afficherTrajet(meilleurChemin); // Affiche le détail rue par rue
+                actuel = meilleur;
+                aFaire.remove(meilleur);
+            } else {
+                System.out.println("❌ Impossible de rejoindre les points restants."); 
+                break;
+            }
+        }
+        
+        // Retour au dépôt
+        System.out.println("\n🏠 Retour au dépôt...");
+        total += afficherTrajet(getCheminDijkstra(actuel, idDepot));
+        
+        System.out.println("📏 DISTANCE TOTALE TOURNÉE : " + total + " mètres");
+    }
