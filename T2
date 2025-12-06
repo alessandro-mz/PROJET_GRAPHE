@@ -1,0 +1,167 @@
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
+import java.util.*;
+
+public class Projet_T2 {
+
+    public static void main(String[] args) {
+        String fichierGraphe = "graphe.txt";
+        boolean forcerDoubleSens = true;
+        String depot = "Place_Rotterdam";
+        List<String> pointsDeCollecte = new ArrayList<>(Arrays.asList(
+                "Gare_Centrale",
+                "Rivetoile",
+                "Orangerie",
+                "Place_Kleber"
+        ));
+        Graphe graphe = new Graphe();
+        try {
+            chargerGraphe(graphe, fichierGraphe, forcerDoubleSens);
+            System.out.println("--- Graphe chargé : " + graphe.getSommets().size() + " sommets ---");
+        } catch (IOException e) {
+            System.err.println("Erreur fichier : " + e.getMessage());
+            return;
+        }
+        System.out.println("\n DÉBUT DE LA TOURNÉE (Algo: Plus Proche Voisin)");
+        System.out.println("Départ : " + depot);
+        System.out.println("À visiter : " + pointsDeCollecte);
+        System.out.println("------------------------------------------------");
+
+        calculerTourneeGloutonne(graphe, depot, pointsDeCollecte);
+    }
+    public static void calculerTourneeGloutonne(Graphe graphe, String depot, List<String> aVisiter) {
+        String positionActuelle = depot;
+        List<String> itineraireGlobal = new ArrayList<>();
+        itineraireGlobal.add(depot);
+        int distanceTotale = 0;
+        while (!aVisiter.isEmpty()) {
+            String meilleurCandidat = null;
+            int meilleureDistance = Integer.MAX_VALUE;
+            List<String> meilleurChemin = null;
+            ResultatDijkstra resultats = Dijkstra.calculerDistancesDepuis(graphe, positionActuelle);
+            for (String candidat : aVisiter) {
+                if (resultats.distances.containsKey(candidat)) {
+                    int dist = resultats.distances.get(candidat);
+                    if (dist < meilleureDistance) {
+                        meilleureDistance = dist;
+                        meilleurCandidat = candidat;
+                    }
+                }
+            }
+            if (meilleurCandidat == null) {
+                System.out.println(" Impossible d'atteindre les points restants : " + aVisiter);
+                break;
+            }
+            System.out.println(" -> Déplacement vers : " + meilleurCandidat + " (" + meilleureDistance + "m)");
+            List<String> cheminEtape = Dijkstra.reconstruireChemin(resultats.predecesseurs, meilleurCandidat);
+            for (int i = 1; i < cheminEtape.size(); i++) {
+                itineraireGlobal.add(cheminEtape.get(i));
+            }
+
+            distanceTotale += meilleureDistance;
+            positionActuelle = meilleurCandidat;
+            aVisiter.remove(meilleurCandidat);
+        }
+
+        System.out.println("------------------------------------------------");
+        System.out.println("🏁 Retour au dépôt (" + depot + ")...");
+
+        ResultatDijkstra retour = Dijkstra.calculerDistancesDepuis(graphe, positionActuelle);
+        if (retour.distances.containsKey(depot)) {
+            int distRetour = retour.distances.get(depot);
+            System.out.println(" -> Distance retour : " + distRetour + "m");
+            distanceTotale += distRetour;
+
+            List<String> cheminRetour = Dijkstra.reconstruireChemin(retour.predecesseurs, depot);
+            for (int i = 1; i < cheminRetour.size(); i++) {
+                itineraireGlobal.add(cheminRetour.get(i));
+            }
+        } else {
+            System.out.println(" Impossible de rentrer au dépôt !");
+        }
+
+        System.out.println("\n TOURNÉE TERMINÉE");
+        System.out.println("Distance Totale : " + distanceTotale + " mètres");
+        System.out.println("Itinéraire complet : " + itineraireGlobal);
+    }
+
+    public static void chargerGraphe(Graphe g, String path, boolean doubleSens) throws IOException {
+        BufferedReader r = new BufferedReader(new FileReader(path));
+        String l;
+        while ((l = r.readLine()) != null) {
+            l = l.trim();
+            if (l.isEmpty() || l.startsWith("#")) continue;
+            String[] p = l.split(";");
+            if (p.length == 3) {
+                try {
+                    int w = Integer.parseInt(p[2].trim());
+                    g.ajouterArete(p[0].trim(), p[1].trim(), w);
+                    if (doubleSens) g.ajouterArete(p[1].trim(), p[0].trim(), w);
+                } catch(Exception e) {}
+            }
+        }
+        r.close();
+    }
+}
+
+class Graphe {
+    Map<String, Map<String, Integer>> adj = new HashMap<>();
+    public void ajouterArete(String src, String dst, int p) {
+        adj.putIfAbsent(src, new HashMap<>());
+        adj.putIfAbsent(dst, new HashMap<>());
+        if (!adj.get(src).containsKey(dst) || adj.get(src).get(dst) > p) {
+            adj.get(src).put(dst, p);
+        }
+    }
+    public Map<String, Integer> getVoisins(String s) { return adj.getOrDefault(s, new HashMap<>()); }
+    public Set<String> getSommets() { return adj.keySet(); }
+}
+
+class ResultatDijkstra {
+    Map<String, Integer> distances;
+    Map<String, String> predecesseurs;
+    public ResultatDijkstra(Map<String, Integer> d, Map<String, String> p) { distances=d; predecesseurs=p; }
+}
+
+class Dijkstra {
+    public static ResultatDijkstra calculerDistancesDepuis(Graphe g, String depart) {
+        Map<String, Integer> dist = new HashMap<>();
+        Map<String, String> pred = new HashMap<>();
+        PriorityQueue<String> pq = new PriorityQueue<>(Comparator.comparingInt(dist::get));
+
+        for (String s : g.getSommets()) dist.put(s, Integer.MAX_VALUE);
+        dist.put(depart, 0);
+        pq.add(depart);
+
+        Set<String> visites = new HashSet<>();
+
+        while (!pq.isEmpty()) {
+            String u = pq.poll();
+            if (visites.contains(u)) continue;
+            visites.add(u);
+            if (dist.get(u) == Integer.MAX_VALUE) break;
+
+            for (Map.Entry<String, Integer> vEntry : g.getVoisins(u).entrySet()) {
+                String v = vEntry.getKey();
+                int weight = vEntry.getValue();
+                if (dist.get(u) + weight < dist.get(v)) {
+                    dist.put(v, dist.get(u) + weight);
+                    pred.put(v, u);
+                    pq.add(v);
+                }
+            }
+        }
+        return new ResultatDijkstra(dist, pred);
+    }
+
+    public static List<String> reconstruireChemin(Map<String, String> pred, String cible) {
+        LinkedList<String> path = new LinkedList<>();
+        String step = cible;
+        while (step != null) {
+            path.addFirst(step);
+            step = pred.get(step);
+        }
+        return path;
+    }
+}
