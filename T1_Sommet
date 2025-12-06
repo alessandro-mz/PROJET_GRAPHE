@@ -1,0 +1,24 @@
+import java.util.ArrayList;
+import java.util.List;
+
+public class Sommet {
+    private String nom; // C'est l'ID unique (ex: N30285964)
+    private List<Arc> arcsAdjacents;
+
+    public Sommet(String nom) {
+        this.nom = nom;
+        this.arcsAdjacents = new ArrayList<>();
+    }
+
+    public String getNom() {
+        return nom;
+    }
+
+    public List<Arc> getArcsAdjacents() {
+        return arcsAdjacents;
+    }
+
+    public void ajouterArcVoisin(Arc arc) {
+        this.arcsAdjacents.add(arc);
+    }
+}
