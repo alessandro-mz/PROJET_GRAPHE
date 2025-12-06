@@ -1,0 +1,285 @@
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.util.*;
+
+public class Graphe {
+
+    private Map<String, Sommet> sommets;
+    private Map<String, List<Sommet>> annuaireRues;
+
+    public Graphe() {
+        this.sommets = new HashMap<>();
+        this.annuaireRues = new HashMap<>();
+    }
+
+    // --- CONSTRUCTION ET CHARGEMENT (Inchangé) ---
+
+    public void ajouterSommet(String id) {
+        if (!sommets.containsKey(id)) sommets.put(id, new Sommet(id));
+    }
+
+    public void ajouterArc(String idSource, String idDest, int poids, String nomRue) {
+        Sommet s1 = sommets.get(idSource);
+        Sommet s2 = sommets.get(idDest);
+        if (s1 != null && s2 != null) {
+            s1.ajouterArcVoisin(new Arc(s2, poids, nomRue));
+        }
+    }
+
+    public void chargerFichierStrasbourg(String chemin) {
+        System.out.println("Chargement du fichier " + chemin + "...");
+        try {
+            Scanner sc = new Scanner(new File(chemin));
+            while (sc.hasNextLine()) {
+                String ligne = sc.nextLine().trim();
+                if (ligne.isEmpty()) continue;
+
+                String[] parts = ligne.split(";");
+                if (parts.length >= 4) {
+                    String idSource = parts[0].trim();
+                    String idDest = parts[1].trim();
+                    int poids = Integer.parseInt(parts[2].trim());
+                    String nomRue = parts[3].trim();
+
+                    ajouterSommet(idSource);
+                    ajouterSommet(idDest);
+                    ajouterArc(idSource, idDest, poids, nomRue);
+
+                    indexerRue(nomRue, sommets.get(idSource));
+                    indexerRue(nomRue, sommets.get(idDest));
+                }
+            }
+            sc.close();
+            System.out.println(" Chargement terminé (" + sommets.size() + " sommets).");
+        } catch (FileNotFoundException e) {
+            System.out.println(" Erreur fichier : " + chemin);
+        }
+    }
+
+    private void indexerRue(String nomRue, Sommet s) {
+        annuaireRues.putIfAbsent(nomRue, new ArrayList<>());
+        if (!annuaireRues.get(nomRue).contains(s)) {
+            annuaireRues.get(nomRue).add(s);
+        }
+    }
+
+    public String trouverIdParNomRue(String saisie) {
+        if (saisie == null) return null;
+        String recherche = saisie.trim().replace(" ", "_");
+        for (String nomReel : annuaireRues.keySet()) {
+            if (nomReel.equalsIgnoreCase(recherche) || nomReel.replace("_", " ").equalsIgnoreCase(saisie)) {
+                List<Sommet> points = annuaireRues.get(nomReel);
+                if (!points.isEmpty()) return points.get(0).getNom();
+            }
+        }
+        return null;
+    }
+
+    // --- ALGORITHMES (Inchangé) ---
+
+    public List<Sommet> getCheminDijkstra(String idDepart, String idArrivee) {
+        Sommet depart = sommets.get(idDepart);
+        Sommet arrivee = sommets.get(idArrivee);
+        if (depart == null || arrivee == null) return null;
+
+        Map<Sommet, Integer> distances = new HashMap<>();
+        Map<Sommet, Sommet> preds = new HashMap<>();
+        PriorityQueue<Paire> file = new PriorityQueue<>();
+        Set<Sommet> visites = new HashSet<>();
+
+        for (Sommet s : sommets.values()) distances.put(s, Integer.MAX_VALUE);
+        distances.put(depart, 0);
+        file.add(new Paire(depart, 0));
+
+        while (!file.isEmpty()) {
+            Paire p = file.poll();
+            Sommet u = p.sommet;
+            if (visites.contains(u)) continue;
+            visites.add(u);
+            if (u == arrivee) break;
+
+            for (Arc a : u.getArcsAdjacents()) {
+                Sommet v = a.getDestination();
+                if (!visites.contains(v)) {
+                    int newDist = distances.get(u) + a.getPoids();
+                    if (newDist < distances.get(v)) {
+                        distances.put(v, newDist);
+                        preds.put(v, u);
+                        file.add(new Paire(v, newDist));
+                    }
+                }
+            }
+        }
+        if (distances.get(arrivee) == Integer.MAX_VALUE) return null;
+
+        List<Sommet> chemin = new ArrayList<>();
+        Sommet s = arrivee;
+        while (s != null) { chemin.add(s); s = preds.get(s); }
+        Collections.reverse(chemin);
+        return chemin;
+    }
+
+    // --- AFFICHAGE (Inchangé) ---
+    public int afficherTrajetDetaille(List<Sommet> chemin) {
+        if (chemin == null || chemin.isEmpty()) {
+            System.out.println(" Aucun chemin trouvé !");
+            return 0;
+        }
+        System.out.println("   DÉPART");
+        int total = 0;
+        for (int i = 0; i < chemin.size() - 1; i++) {
+            Sommet s1 = chemin.get(i);
+            Sommet s2 = chemin.get(i + 1);
+            int dist = 0;
+            String nom = "Inconnu";
+            for (Arc a : s1.getArcsAdjacents()) {
+                if (a.getDestination() == s2) {
+                    dist = a.getPoids();
+                    nom = a.getNomRue().replace("_", " ");
+                    break;
+                }
+            }
+            System.out.printf("     %-25s (%d m)\n", nom, dist);
+            total += dist;
+        }
+        System.out.println("    ARRIVÉE");
+        return total;
+    }
+
+    // Utilitaire interne pour calculer une distance sans l'afficher
+    private int calculerDistanceChemin(List<Sommet> chemin) {
+        if (chemin == null) return 0;
+        int d = 0;
+        for (int i = 0; i < chemin.size() - 1; i++) {
+            Sommet u = chemin.get(i), v = chemin.get(i + 1);
+            for (Arc a : u.getArcsAdjacents()) if (a.getDestination() == v) d += a.getPoids();
+        }
+        return d;
+    }
+
+    // --- TOURNÉE HYPOTHÈSE 2 (Inchangé) ---
+    public void optimiserTournee(String idDepot, List<String> clients) {
+        System.out.println("\n=== TOURNÉE OPTIMISÉE (Hypothèse 2) ===");
+        String actuel = idDepot;
+        List<String> aVisiter = new ArrayList<>(clients);
+        int total = 0;
+
+        while (!aVisiter.isEmpty()) {
+            String bestClient = null;
+            int minD = Integer.MAX_VALUE;
+            List<Sommet> bestChemin = null;
+
+            for (String client : aVisiter) {
+                List<Sommet> ch = getCheminDijkstra(actuel, client);
+                if (ch != null) {
+                    int d = calculerDistanceChemin(ch);
+                    if (d < minD) { minD = d; bestClient = client; bestChemin = ch; }
+                }
+            }
+            if (bestClient != null) {
+                System.out.println("\n Vers le prochain point...");
+                total += afficherTrajetDetaille(bestChemin);
+                actuel = bestClient;
+                aVisiter.remove(bestClient);
+                System.out.println(" Collecté.");
+            } else {
+                System.out.println(" Impossible d'atteindre les points restants."); return;
+            }
+        }
+        System.out.println("\n Retour au dépôt...");
+        total += afficherTrajetDetaille(getCheminDijkstra(actuel, idDepot));
+        System.out.println("\n TOTAL PARCOURU : " + total + " m");
+    }
+
+    // =========================================================================
+    // --- NOUVELLE VERSION : PROBLÈME 2 (EULÉRIEN + CALCUL PÉNALITÉ) ---
+    // =========================================================================
+
+    public void analyseEulerienne() {
+        System.out.println("\n===  ANALYSE EULÉRIENNE & ESTIMATION COÛT ===");
+
+        long distanceRues = 0;
+        List<Sommet> sommetsImpairs = new ArrayList<>();
+
+        // 1. Analyse du graphe
+        for (Sommet s : sommets.values()) {
+            if (s.getArcsAdjacents().size() % 2 != 0) {
+                sommetsImpairs.add(s);
+            }
+            for (Arc a : s.getArcsAdjacents()) {
+                distanceRues += a.getPoids();
+            }
+        }
+        // Le fichier Strasbourg a les rues en double (Aller/Retour), donc la distance est déjà la somme totale
+
+        System.out.println("1. Longueur totale de la voirie (toutes les rues) : " + distanceRues + " m");
+        System.out.println("2. Nombre de carrefours à degré impair : " + sommetsImpairs.size());
+
+        long penalite = 0;
+
+        // 3. Calcul du surcoût
+        if (sommetsImpairs.isEmpty()) {
+            System.out.println(" Graphe EULÉRIEN PARFAIT.");
+            System.out.println("   Le camion passe exactement une fois dans chaque rue et revient au départ.");
+            System.out.println("   -> Surcoût : 0 m");
+
+        } else if (sommetsImpairs.size() == 2) {
+            System.out.println("️ Graphe SEMI-EULÉRIEN.");
+            System.out.println("   Une tournée est possible mais ne boucle pas naturellement.");
+            System.out.println("   Le camion doit parcourir le chemin le plus court entre les deux extrémités pour fermer la boucle.");
+
+            Sommet s1 = sommetsImpairs.get(0);
+            Sommet s2 = sommetsImpairs.get(1);
+            List<Sommet> retour = getCheminDijkstra(s1.getNom(), s2.getNom());
+
+            if (retour != null) {
+                penalite = calculerDistanceChemin(retour);
+                System.out.println("   -> Trajet de retour nécessaire (" + s1.getNom() + " <-> " + s2.getNom() + ")");
+                System.out.println("   -> Cela rajoute : " + penalite + " m");
+            } else {
+                System.out.println("   -> Erreur : Graphe non connexe.");
+            }
+
+        } else {
+            System.out.println(" Graphe NON EULÉRIEN.");
+            System.out.println("   Le camion est obligé de repasser par des rues déjà visitées (trajets à vide).");
+            System.out.println("   Calcul d'une estimation de la pénalité (Couplage glouton)...");
+
+            // Algorithme glouton pour coupler les sommets impairs
+            List<Sommet> aTraiter = new ArrayList<>(sommetsImpairs);
+
+            while (!aTraiter.isEmpty()) {
+                Sommet u = aTraiter.remove(0); // On prend le premier
+                Sommet meilleurV = null;
+                int minD = Integer.MAX_VALUE;
+
+                // On cherche le plus proche parmi les restants
+                for (Sommet v : aTraiter) {
+                    List<Sommet> chemin = getCheminDijkstra(u.getNom(), v.getNom());
+                    if (chemin != null) {
+                        int d = calculerDistanceChemin(chemin);
+                        if (d < minD) {
+                            minD = d;
+                            meilleurV = v;
+                        }
+                    }
+                }
+
+                if (meilleurV != null) {
+                    penalite += minD;
+                    aTraiter.remove(meilleurV); // On enlève son partenaire
+                    // System.out.println("      (Rebouclage local : " + minD + " m)");
+                } else {
+                    // Cas rare graphe non connexe
+                }
+            }
+            System.out.println("   -> Cela rajoute environ : " + penalite + " m de trajets à vide.");
+        }
+
+        System.out.println("\n BILAN TOURNÉE GLOBALE");
+        System.out.println("   Distance utile :   " + distanceRues + " m");
+        System.out.println("   Distance à vide : + " + penalite + " m");
+        System.out.println("   ------------------------------");
+        System.out.println("   TOTAL ESTIMÉ :     " + (distanceRues + penalite) + " m");
+    }
+}
