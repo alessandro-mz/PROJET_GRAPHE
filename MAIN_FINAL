@@ -1,0 +1,299 @@
+import java.util.*;
+
+public class Main {
+    public static void main(String[] args) {
+        Graphe g = new Graphe();
+        Scanner sc = new Scanner(System.in);
+
+        // 1. Chargement
+        // Vérifiez bien que le fichier est à la racine du projet !
+        g.chargerFichierStrasbourg("strasbourg_eurometropole");
+
+        boolean running = true;
+        while(running) {
+            System.out.println("\n#############################################");
+            System.out.println("          MENU PROJET GRAPHE");
+            System.out.println("#############################################");
+            System.out.println("1. Itinéraire GPS (A -> B)");
+            System.out.println("2. Tournée Encombrants (Algo Glouton)");
+            System.out.println("3. Tournée Encombrants Optimisée (Algo MST/Prim)");
+            System.out.println("4. Analyse Collecte Globale (Eulerien)");
+            System.out.println("5. Planification des Jours (Coloration)");
+            System.out.println("0. Quitter");
+            System.out.print("\nVotre choix > ");
+
+            String choix = sc.nextLine();
+
+            switch(choix) {
+                // CAS 1 : GPS STANDARD (Appel  à Dijkstra)
+                case "1":
+                    System.out.println("\n--- GPS STANDARD ---");
+                    String dep = ask(sc, g, "Rue de DÉPART");
+                    String arr = ask(sc, g, "Rue d'ARRIVÉE");
+
+                    if (dep != null && arr != null) {
+                        System.out.println("Calcul en cours...");
+                        List<Sommet> chemin = g.getCheminDijkstra(dep, arr);
+
+                        // C'est ici que l'affichage se fait
+                        if (chemin != null) {
+                            int dist = afficherCheminEtTotal(g, chemin); // Affiche étapes + Total
+                        } else {
+                            System.out.println(" Aucun chemin trouvé.");
+                        }
+                    }
+                    break;
+
+                // ============================================================
+                // CAS 2 : TOURNÉE GLOUTONNE (Logique "Plus Proche Voisin")
+                // ============================================================
+                case "2":
+                    System.out.println("\n--- TOURNÉE GLOUTONNE ---");
+                    String depotG = ask(sc, g, "Rue du Dépôt");
+                    if (depotG == null) break;
+
+                    List<String> clientsG = demanderListePoints(sc, g);
+                    if (clientsG.isEmpty()) break;
+
+                    String actuel = depotG;
+                    int totalG = 0;
+
+                    while (!clientsG.isEmpty()) {
+                        String meilleur = null;
+                        int minD = Integer.MAX_VALUE;
+                        List<Sommet> meilleurChemin = null;
+
+                        for (String c : clientsG) {
+                            List<Sommet> ch = g.getCheminDijkstra(actuel, c);
+                            int d = calculerDistance(ch);
+                            if (d < minD) { minD = d; meilleur = c; meilleurChemin = ch; }
+                        }
+
+                        if (meilleur != null) {
+                            System.out.println("\n Vers " + g.getNomLisible(meilleur) + " (" + minD + "m)...");
+                            afficherCheminEtTotal(g, meilleurChemin);
+                            totalG += minD;
+                            actuel = meilleur;
+                            clientsG.remove(meilleur);
+                        } else {
+                            System.out.println("Erreur : point inaccessible."); break;
+                        }
+                    }
+                    System.out.println("\n Retour au dépôt...");
+                    List<Sommet> retourG = g.getCheminDijkstra(actuel, depotG);
+                    afficherCheminEtTotal(g, retourG);
+                    totalG += calculerDistance(retourG);
+
+                    System.out.println("-------------------------------------");
+                    System.out.println("📏 TOTAL TOURNÉE GLOUTON : " + totalG + " mètres");
+                    break;
+
+                // ============================================================
+                // CAS 3 : TOURNÉE MST (Logique Prim + DFS)
+                // ============================================================
+                case "3":
+                    System.out.println("\n---  TOURNÉE MST (PRIM) ---");
+                    String depotM = ask(sc, g, "Rue du Dépôt");
+                    if (depotM == null) break;
+                    List<String> clientsM = demanderListePoints(sc, g);
+                    if (clientsM.isEmpty()) break;
+
+                    List<String> points = new ArrayList<>(clientsM);
+                    points.add(0, depotM);
+
+                    System.out.println("Construction du Méta-Graphe...");
+                    Map<String, Map<String, Integer>> metaGraphe = new HashMap<>();
+                    for(String s1 : points) {
+                        metaGraphe.put(s1, new HashMap<>());
+                        for(String s2 : points) {
+                            if(!s1.equals(s2)) {
+                                int dist = calculerDistance(g.getCheminDijkstra(s1, s2));
+                                metaGraphe.get(s1).put(s2, dist);
+                            }
+                        }
+                    }
+
+                    Map<String, List<String>> arbreMST = new HashMap<>();
+                    for(String p : points) arbreMST.put(p, new ArrayList<>());
+                    Set<String> dansArbre = new HashSet<>();
+                    dansArbre.add(depotM);
+                    PriorityQueue<AreteVirtuelle> pq = new PriorityQueue<>();
+                    for(var entry : metaGraphe.get(depotM).entrySet())
+                        pq.add(new AreteVirtuelle(depotM, entry.getKey(), entry.getValue()));
+
+                    while(dansArbre.size() < points.size() && !pq.isEmpty()) {
+                        AreteVirtuelle av = pq.poll();
+                        if(dansArbre.contains(av.dest)) continue;
+                        dansArbre.add(av.dest);
+                        arbreMST.get(av.src).add(av.dest);
+                        arbreMST.get(av.dest).add(av.src);
+                        for(var entry : metaGraphe.get(av.dest).entrySet()) {
+                            if(!dansArbre.contains(entry.getKey()))
+                                pq.add(new AreteVirtuelle(av.dest, entry.getKey(), entry.getValue()));
+                        }
+                    }
+
+                    List<String> ordre = new ArrayList<>();
+                    calculerOrdreDFS(depotM, new HashSet<>(), arbreMST, ordre);
+                    ordre.add(depotM);
+
+                    System.out.print("Ordre calculé : ");
+                    for(String id : ordre) System.out.print(g.getNomLisible(id) + " -> ");
+                    System.out.println("FIN");
+
+                    int totalM = 0;
+                    for(int i=0; i<ordre.size()-1; i++) {
+                        List<Sommet> ch = g.getCheminDijkstra(ordre.get(i), ordre.get(i+1));
+                        totalM += afficherCheminEtTotal(g, ch); // Affiche et ajoute
+                    }
+                    System.out.println("-------------------------------------");
+                    System.out.println("📏 TOTAL TOURNÉE MST : " + totalM + " mètres");
+                    break;
+
+                // CAS 4 : EULERIEN
+
+                case "4":
+                    System.out.println("\n--- ANALYSE EULÉRIENNE ---");
+                    int impairs = 0; long lenVoirie = 0;
+                    List<Sommet> listeImpairs = new ArrayList<>();
+
+                    for(Sommet s : g.getSommetsListe()) {
+                        if(s.getArcsAdjacents().size() % 2 != 0) {
+                            impairs++;
+                            listeImpairs.add(s);
+                        }
+                        for(Arc a : s.getArcsAdjacents()) lenVoirie += a.getPoids();
+                    }
+                    System.out.println("Distance totale voirie : " + lenVoirie + " m");
+                    System.out.println("Sommets impairs : " + impairs);
+
+                    if(impairs == 0) System.out.println(" EULÉRIEN (Parfait)");
+                    else {
+                        System.out.println(" NON EULÉRIEN (" + impairs + " impasses)");
+                        System.out.println("Calcul pénalité (Estimation)...");
+                        long penalite = 0;
+                        while(listeImpairs.size() >= 2) {
+                            Sommet s1 = listeImpairs.remove(0);
+                            Sommet s2 = listeImpairs.remove(0);
+                            List<Sommet> retour = g.getCheminDijkstra(s1.getId(), s2.getId());
+                            penalite += calculerDistance(retour);
+                        }
+                        System.out.println("-> Pénalité estimée : " + penalite + " m");
+                        System.out.println("TOTAL : " + (lenVoirie + penalite) + " m");
+                    }
+                    break;
+
+                // CAS 5 : COLORATION
+                case "5":
+                    System.out.println("\n--- PLANIFICATION (COLORATION) ---");
+                    Graphe plan = new Graphe();
+                    Sommet centre = new Sommet("Secteur_Centre");
+                    Sommet nord = new Sommet("Secteur_Nord");
+                    Sommet sud = new Sommet("Secteur_Sud");
+                    Sommet est = new Sommet("Secteur_Est");
+                    Sommet ouest = new Sommet("Secteur_Ouest");
+                    plan.ajouterSommetDirect(centre); plan.ajouterSommetDirect(nord);
+                    plan.ajouterSommetDirect(sud); plan.ajouterSommetDirect(est);
+                    plan.ajouterSommetDirect(ouest);
+
+                    plan.ajouterAreteNonOrientee(centre, nord); plan.ajouterAreteNonOrientee(centre, sud);
+                    plan.ajouterAreteNonOrientee(centre, est); plan.ajouterAreteNonOrientee(centre, ouest);
+                    plan.ajouterAreteNonOrientee(nord, est); plan.ajouterAreteNonOrientee(nord, ouest);
+                    plan.ajouterAreteNonOrientee(sud, est); plan.ajouterAreteNonOrientee(sud, ouest);
+
+                    Map<Sommet, Integer> couleurs = new HashMap<>();
+                    List<Sommet> tri = new ArrayList<>(plan.getSommetsListe());
+                    tri.sort((s1, s2) -> Integer.compare(s2.getArcsAdjacents().size(), s1.getArcsAdjacents().size()));
+
+                    int coul = 0, nbColorie = 0;
+                    while(nbColorie < tri.size()) {
+                        coul++;
+                        for(Sommet s : tri) {
+                            if(!couleurs.containsKey(s)) {
+                                boolean ok = true;
+                                for(Arc a : s.getArcsAdjacents()) {
+                                    if(couleurs.containsKey(a.getDestination()) && couleurs.get(a.getDestination()) == coul) {
+                                        ok = false; break;
+                                    }
+                                }
+                                if(ok) { couleurs.put(s, coul); nbColorie++; }
+                            }
+                        }
+                    }
+                    String[] jours = {"", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi"};
+                    for(var e : couleurs.entrySet()) {
+                        int j = e.getValue();
+                        System.out.println(" - " + e.getKey().getId() + " : " + (j < jours.length ? jours[j] : "Jour "+j));
+                    }
+                    break;
+                case "0": running = false; break;
+            }
+        }
+        sc.close();
+    }
+
+    // --- UTILITAIRES ---
+
+    private static String ask(Scanner sc, Graphe g, String msg) {
+        while(true) {
+            System.out.print(msg + " > ");
+            String in = sc.nextLine();
+            if(in.equalsIgnoreCase("fin") || in.equalsIgnoreCase("menu")) return null;
+            String id = g.trouverIdParNomRue(in);
+            if(id != null) return id;
+            System.out.println(" Rue inconnue.");
+        }
+    }
+
+    private static List<String> demanderListePoints(Scanner sc, Graphe g) {
+        List<String> l = new ArrayList<>();
+        System.out.println("Entrez les rues (tapez 'fin' pour terminer) :");
+        while(true) {
+            String s = ask(sc, g, "Point à visiter");
+            if(s == null) break;
+            l.add(s);
+        }
+        return l;
+    }
+
+    private static int calculerDistance(List<Sommet> chemin) {
+        if(chemin == null) return 0;
+        int d = 0;
+        for(int i=0; i<chemin.size()-1; i++) {
+            Sommet u = chemin.get(i), v = chemin.get(i+1);
+            for(Arc a : u.getArcsAdjacents()) {
+                if(a.getDestination() == v) { d += a.getPoids(); break; }
+            }
+        }
+        return d;
+    }
+
+    // --- MODIFICATION ICI : Affiche le détail ET le total à la fin ---
+    private static int afficherCheminEtTotal(Graphe g, List<Sommet> chemin) {
+        if(chemin == null) return 0;
+        int total = 0;
+        for(int i=0; i<chemin.size()-1; i++) {
+            Sommet u = chemin.get(i), v = chemin.get(i+1);
+            int dist = 0; String nom = "?";
+            for(Arc a : u.getArcsAdjacents()) {
+                if(a.getDestination() == v) { dist = a.getPoids(); nom = a.getNomRue(); break; }
+            }
+            System.out.println(" " + nom.replace("_", " ") + " (" + dist + "m)");
+            total += dist;
+        }
+        // Affichage du total à la fin de chaque tronçon affiché
+        System.out.println("   (distance totale : " + total + " m)");
+        return total;
+    }
+
+    private static void calculerOrdreDFS(String u, Set<String> vis, Map<String, List<String>> tree, List<String> res) {
+        vis.add(u); res.add(u);
+        for(String v : tree.get(u)) if(!vis.contains(v)) calculerOrdreDFS(v, vis, tree, res);
+    }
+
+    static class AreteVirtuelle implements Comparable<AreteVirtuelle> {
+        String src, dest; int w;
+        public AreteVirtuelle(String s, String d, int w) { src=s; dest=d; this.w=w; }
+        public int compareTo(AreteVirtuelle o) { return Integer.compare(this.w, o.w); }
+    }
+}
