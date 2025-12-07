@@ -2,15 +2,17 @@ import java.util.*;
 
 public class Main {
     public static void main(String[] args) {
+        // on crée l'objet Graphe qui va contenir toute la carte de Strasbourg
         Graphe g = new Graphe();
         Scanner sc = new Scanner(System.in);
 
-        // 1. Chargement
-        // Vérifiez bien que le fichier est à la racine du projet !
+        // appel de la focntion de chargement de fichier
         g.chargerFichierStrasbourg("strasbourg_eurometropole");
 
         boolean running = true;
+
         while(running) {
+            // le programme tourne tant que l'utilisateur ne met pas de 0
             System.out.println("\n#############################################");
             System.out.println("          MENU PROJET GRAPHE");
             System.out.println("#############################################");
@@ -18,7 +20,8 @@ public class Main {
             System.out.println("2. Tournée Encombrants (Algo Glouton)");
             System.out.println("3. Tournée Encombrants Optimisée (Algo MST/Prim)");
             System.out.println("4. Analyse Collecte Globale (Eulerien)");
-            System.out.println("5. Planification des Jours (Coloration)");
+            System.out.println("5. Planification Simple (Coloration - T3 H1)");
+            System.out.println("6. Planification Avancée (Capacités - T3 H2)");
             System.out.println("0. Quitter");
             System.out.print("\nVotre choix > ");
 
@@ -28,18 +31,23 @@ public class Main {
                 // CAS 1 : GPS STANDARD (Appel  à Dijkstra)
                 case "1":
                     System.out.println("\n--- GPS STANDARD ---");
+                    // on demande  a l'utilisateur de saisir les rues
                     String dep = ask(sc, g, "Rue de DÉPART");
                     String arr = ask(sc, g, "Rue d'ARRIVÉE");
 
                     if (dep != null && arr != null) {
                         System.out.println("Calcul en cours...");
+                        // appel de Dijkstra
                         List<Sommet> chemin = g.getCheminDijkstra(dep, arr);
 
-                        // C'est ici que l'affichage se fait
                         if (chemin != null) {
-                            int dist = afficherCheminEtTotal(g, chemin); // Affiche étapes + Total
+                            // Affichage pas à pas + calcul du total
+                            int dist = afficherCheminEtTotal(g, chemin);
+                            System.out.println("-------------------------------------");
+                            System.out.println(" DISTANCE TOTALE : " + dist + " mètres");
+                            System.out.println("-------------------------------------");
                         } else {
-                            System.out.println(" Aucun chemin trouvé.");
+                            System.out.println(" Aucun chemin trouvé (Zone isolée ou erreur).");
                         }
                     }
                     break;
@@ -157,11 +165,13 @@ public class Main {
                     int impairs = 0; long lenVoirie = 0;
                     List<Sommet> listeImpairs = new ArrayList<>();
 
+                    // on parcout tout le graphe pour compter les sommets impairs
                     for(Sommet s : g.getSommetsListe()) {
                         if(s.getArcsAdjacents().size() % 2 != 0) {
                             impairs++;
                             listeImpairs.add(s);
                         }
+                        // on calcule la longueur totale (somme de tout les arcs)
                         for(Arc a : s.getArcsAdjacents()) lenVoirie += a.getPoids();
                     }
                     System.out.println("Distance totale voirie : " + lenVoirie + " m");
@@ -171,6 +181,8 @@ public class Main {
                     else {
                         System.out.println(" NON EULÉRIEN (" + impairs + " impasses)");
                         System.out.println("Calcul pénalité (Estimation)...");
+                        // estimation de cout supplémentaire
+                        // on relie les sommets impairs deux par deux pour boucher les trous
                         long penalite = 0;
                         while(listeImpairs.size() >= 2) {
                             Sommet s1 = listeImpairs.remove(0);
@@ -184,48 +196,66 @@ public class Main {
                     break;
 
                 // CAS 5 : COLORATION
-                case "5":
-                    System.out.println("\n--- PLANIFICATION (COLORATION) ---");
-                    Graphe plan = new Graphe();
-                    Sommet centre = new Sommet("Secteur_Centre");
-                    Sommet nord = new Sommet("Secteur_Nord");
-                    Sommet sud = new Sommet("Secteur_Sud");
-                    Sommet est = new Sommet("Secteur_Est");
-                    Sommet ouest = new Sommet("Secteur_Ouest");
-                    plan.ajouterSommetDirect(centre); plan.ajouterSommetDirect(nord);
-                    plan.ajouterSommetDirect(sud); plan.ajouterSommetDirect(est);
-                    plan.ajouterSommetDirect(ouest);
+                case "5": {
+                    System.out.println("\n--- PLANIFICATION SIMPLE (T3 H1) ---");
+                    Graphe plan = creerGrapheSecteurs(); // Fonction helper (voir en bas)
 
-                    plan.ajouterAreteNonOrientee(centre, nord); plan.ajouterAreteNonOrientee(centre, sud);
-                    plan.ajouterAreteNonOrientee(centre, est); plan.ajouterAreteNonOrientee(centre, ouest);
-                    plan.ajouterAreteNonOrientee(nord, est); plan.ajouterAreteNonOrientee(nord, ouest);
-                    plan.ajouterAreteNonOrientee(sud, est); plan.ajouterAreteNonOrientee(sud, ouest);
+                    // Algo Welsh-Powell (Juste la couleur)
+                    Map<Sommet, Integer> couleurs = executuerWelshPowell(plan);
 
-                    Map<Sommet, Integer> couleurs = new HashMap<>();
-                    List<Sommet> tri = new ArrayList<>(plan.getSommetsListe());
-                    tri.sort((s1, s2) -> Integer.compare(s2.getArcsAdjacents().size(), s1.getArcsAdjacents().size()));
-
-                    int coul = 0, nbColorie = 0;
-                    while(nbColorie < tri.size()) {
-                        coul++;
-                        for(Sommet s : tri) {
-                            if(!couleurs.containsKey(s)) {
-                                boolean ok = true;
-                                for(Arc a : s.getArcsAdjacents()) {
-                                    if(couleurs.containsKey(a.getDestination()) && couleurs.get(a.getDestination()) == coul) {
-                                        ok = false; break;
-                                    }
-                                }
-                                if(ok) { couleurs.put(s, coul); nbColorie++; }
-                            }
-                        }
-                    }
+                    // Affichage simple
                     String[] jours = {"", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi"};
+                    System.out.println("Résultat de l'algorithme Welsh-Powell (Conflits gérés) :");
                     for(var e : couleurs.entrySet()) {
                         int j = e.getValue();
-                        System.out.println(" - " + e.getKey().getId() + " : " + (j < jours.length ? jours[j] : "Jour "+j));
+                        String jour = (j < jours.length ? jours[j] : "Jour "+j);
+                        System.out.println(" - " + e.getKey().getId() + " : " + jour);
+                    }
+                    System.out.println(" Hypothèse 1 validée : Aucun voisin n'a le même jour.");
+                    break;
+                }
+
+                // ============================================================
+                // CAS 6 : COLORATION + CAPACITÉ (T3 H2) - Avec les tonnes
+                // ============================================================
+                case "6": {
+                    System.out.println("\n--- PLANIFICATION AVANCÉE (T3 H2) ---");
+                    Graphe plan = creerGrapheSecteurs();
+
+                    // Données de simulation pour H2
+                    Map<String, Integer> tonnes = new HashMap<>();
+                    tonnes.put("Secteur_Centre", 50); tonnes.put("Secteur_Nord", 20);
+                    tonnes.put("Secteur_Sud", 25); tonnes.put("Secteur_Est", 15);
+                    tonnes.put("Secteur_Ouest", 30);
+                    int CAPACITE_MAX = 60;
+                    System.out.println("️ Contrainte : Flotte de " + CAPACITE_MAX + " tonnes max/jour.");
+
+                    // Algo Welsh-Powell
+                    Map<Sommet, Integer> couleurs = executuerWelshPowell(plan);
+
+                    // Affichage + Vérification H2
+                    String[] jours = {"", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi"};
+                    Map<Integer, List<Sommet>> planning = new TreeMap<>();
+                    for(var e : couleurs.entrySet()) {
+                        planning.putIfAbsent(e.getValue(), new ArrayList<>());
+                        planning.get(e.getValue()).add(e.getKey());
+                    }
+
+                    for(Integer jour : planning.keySet()) {
+                        String nomJour = (jour < jours.length ? jours[jour] : "Jour " + jour);
+                        System.out.println( nomJour + " :");
+                        int totalJour = 0;
+                        for(Sommet s : planning.get(jour)) {
+                            int qte = tonnes.getOrDefault(s.getId(), 0);
+                            System.out.println("   - " + s.getId() + " (" + qte + "t)");
+                            totalJour += qte;
+                        }
+                        System.out.print("   => TOTAL : " + totalJour + " tonnes. ");
+                        if(totalJour > CAPACITE_MAX) System.out.println(" SURCHARGE ! (> " + CAPACITE_MAX + ")");
+                        else System.out.println("OK.");
                     }
                     break;
+                }
                 case "0": running = false; break;
             }
         }
@@ -233,6 +263,48 @@ public class Main {
     }
 
     // --- UTILITAIRES ---
+    private static Graphe creerGrapheSecteurs() {
+        Graphe plan = new Graphe();
+        Sommet centre = new Sommet("Secteur_Centre");
+        Sommet nord = new Sommet("Secteur_Nord");
+        Sommet sud = new Sommet("Secteur_Sud");
+        Sommet est = new Sommet("Secteur_Est");
+        Sommet ouest = new Sommet("Secteur_Ouest");
+
+        plan.ajouterSommetDirect(centre); plan.ajouterSommetDirect(nord);
+        plan.ajouterSommetDirect(sud); plan.ajouterSommetDirect(est);
+        plan.ajouterSommetDirect(ouest);
+
+        plan.ajouterAreteNonOrientee(centre, nord); plan.ajouterAreteNonOrientee(centre, sud);
+        plan.ajouterAreteNonOrientee(centre, est); plan.ajouterAreteNonOrientee(centre, ouest);
+        plan.ajouterAreteNonOrientee(nord, est); plan.ajouterAreteNonOrientee(nord, ouest);
+        plan.ajouterAreteNonOrientee(sud, est); plan.ajouterAreteNonOrientee(sud, ouest);
+        return plan;
+    }
+
+    // Fonction qui exécute l'algorithme Welsh-Powell (Utilisée par Case 5 et 6)
+    private static Map<Sommet, Integer> executuerWelshPowell(Graphe plan) {
+        Map<Sommet, Integer> couleurs = new HashMap<>();
+        List<Sommet> tri = new ArrayList<>(plan.getSommetsListe());
+        tri.sort((s1, s2) -> Integer.compare(s2.getArcsAdjacents().size(), s1.getArcsAdjacents().size()));
+
+        int coul = 0, nbColorie = 0;
+        while(nbColorie < tri.size()) {
+            coul++;
+            for(Sommet s : tri) {
+                if(!couleurs.containsKey(s)) {
+                    boolean ok = true;
+                    for(Arc a : s.getArcsAdjacents()) {
+                        if(couleurs.containsKey(a.getDestination()) && couleurs.get(a.getDestination()) == coul) {
+                            ok = false; break;
+                        }
+                    }
+                    if(ok) { couleurs.put(s, coul); nbColorie++; }
+                }
+            }
+        }
+        return couleurs;
+    }
 
     private static String ask(Scanner sc, Graphe g, String msg) {
         while(true) {
